@@ -330,6 +330,7 @@ export default class JSXTransformer extends Transformer {
     while (
       this.tokens.tokens[introEnd].isType ||
       (!this.tokens.matches2AtIndex(introEnd - 1, tt.jsxName, tt.jsxName) &&
+        !this.tokens.matches2AtIndex(introEnd - 1, tt.name, tt.jsxName) &&
         !this.tokens.matches2AtIndex(introEnd - 1, tt.greaterThan, tt.jsxName) &&
         !this.tokens.matches1AtIndex(introEnd, tt.braceL) &&
         !this.tokens.matches1AtIndex(introEnd, tt.jsxTagEnd) &&
@@ -342,7 +343,18 @@ export default class JSXTransformer extends Transformer {
       if (startsWithLowerCase(tagName)) {
         this.tokens.replaceToken(`'${tagName}'`);
       }
+    } else if (
+      introEnd === this.tokens.currentIndex() + 3 &&
+      this.tokens.matches3(tt.jsxName, tt.colon, tt.name)
+    ) {
+      // Handle namespaced tag name
+      const tagFront = this.tokens.identifierName();
+      this.tokens.removeToken();
+      this.tokens.removeToken();
+      const tagBack = this.tokens.identifierName();
+      this.tokens.replaceToken(`'${tagFront}:${tagBack}'`);
     }
+
     while (this.tokens.currentIndex() < introEnd) {
       this.rootTransformer.processToken();
     }
@@ -417,6 +429,22 @@ export default class JSXTransformer extends Transformer {
           this.tokens.replaceToken(": ");
           this.processPropValue();
         }
+      } else if (this.tokens.matches4(tt.jsxName, tt.colon, tt.name, tt.eq)) {
+        // handle namespaced prop
+        const propFront = this.tokens.identifierName()
+        this.tokens.removeToken();
+        this.tokens.removeToken();
+        const propBack = this.tokens.identifierName()
+        this.tokens.removeToken();
+        this.tokens.replaceToken(`'${propFront}:${propBack}': `)
+        this.processPropValue();
+      } else if (this.tokens.matches3(tt.jsxName, tt.colon, tt.name)) {
+        // handle namespaced prop without `=``
+        const propFront = this.tokens.identifierName()
+        this.tokens.removeToken();
+        this.tokens.removeToken();
+        const propBack = this.tokens.identifierName()
+        this.tokens.replaceToken(`'${propFront}:${propBack}': true`)
       } else if (this.tokens.matches1(tt.jsxName)) {
         // This is a shorthand prop like <input disabled />.
         const propName = this.tokens.identifierName();
